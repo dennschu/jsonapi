@@ -46,6 +46,13 @@ class Extension extends \Bolt\BaseExtension {
     $this->app->get( $this->base . "/taxonomy/{taxonomyType}", [ $this, 'jsonapi_taxonomy' ] )
         ->bind( 'jsonapi_taxonomy' );
 
+    /** Users json api endpoint */
+    $this->app->get( $this->base . '/user', [ $this, 'jsonapi_user' ] )
+        ->bind( 'jsonapi_user_list' );
+    $this->app->get( $this->base . '/user/{id}', [ $this, 'jsonapi_user' ] )
+        ->bind( 'jsonapi_user' );
+
+
     $this->app->get( $this->base . "/menu", [ $this, 'jsonapi_menu' ] )
         ->bind( 'jsonapi_menu' );
     $this->app->get( $this->base . "/search", [ $this, 'jsonapi_search' ] )
@@ -113,6 +120,78 @@ class Extension extends \Bolt\BaseExtension {
 
     return $this->response( $responseData );
   }
+
+  /**
+   * @param Request $resquest
+   * @param null|int    $id
+   *
+   * @return Symfony\Component\HttpFoundation\Response
+   */
+  public function jsonapi_user( Request $resquest, $id = null ) {
+    $this->request = $resquest;
+
+    /** @var Bolt/Users $userService */
+    $userService = $this->app['users'];
+
+    $cleanedUserData = [ ];
+
+    if ( ! is_null( $id ) ) {
+
+      $user = $userService->getUser( $id );
+
+      if ( false !== $user ) {
+        $cleanedUserData = $userService->getUser( $id );
+      }
+
+    } else {
+
+      foreach ( $userService->getUsers() as $user ) {
+        $cleanedUserData[] = $this->transformUserData( $user );
+      }
+
+    }
+
+    if ( empty( $cleanedUserData ) ) {
+
+      if ( is_null( $id ) ) {
+        $detailMessage = "No users found";
+      } else {
+        $detailMessage = "User with id [$id] does not exist";
+      }
+
+      return $this->responseNotFound(
+          [
+              'detail' => $detailMessage
+          ]
+      );
+    }
+
+    return $this->response(
+            [
+                'data' => $cleanedUserData,
+            ]
+    );
+  }
+
+  /**
+   * @param array $user
+   *
+   * @return array|bool
+   */
+  private function transformUserData( array $user ) {
+    $result = false;
+
+    if ( isset( $user['id'] ) && ! empty( $user['id'] ) ) {
+      $result = [
+          'id'          => $user['id'],
+          'email'       => isset( $user['email'] ) ? $user['email'] : '',
+          'displayname' => isset( $user['displayname'] ) ? $user['displayname'] : '',
+      ];
+    }
+
+    return $result;
+  }
+
 
   // -------------------------------------------------------------------------
   // -- FUNCTIONS HANDLING REQUESTS                                         --
